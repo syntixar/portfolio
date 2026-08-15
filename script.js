@@ -103,7 +103,52 @@
     revealEls.forEach((el) => io.observe(el));
   }
 
-  /* ---------- 6. Card mouse-tracking spotlight ---------- */
+  /* ---------- 6. Word-by-word heading reveal ---------- */
+  const heads = $$('.sec-title, .cta-title');
+  if (!prefersReduced && heads.length) {
+    const wrapWord = (frag, word, delayRef) => {
+      const w = document.createElement('span');
+      w.className = 'w';
+      const wi = document.createElement('span');
+      wi.className = 'wi';
+      wi.textContent = word;
+      w.appendChild(wi);
+      w.style.setProperty('--d', `${delayRef.i * 0.03}s`);
+      delayRef.i++;
+      frag.appendChild(w);
+      frag.appendChild(document.createTextNode(' '));
+    };
+
+    heads.forEach((head) => {
+      const frag = document.createDocumentFragment();
+      const delayRef = { i: 0 };
+      Array.from(head.childNodes).forEach((node) => {
+        if (node.nodeType === Node.TEXT_NODE) {
+          node.textContent.split(/\s+/).filter(Boolean).forEach((word) => wrapWord(frag, word, delayRef));
+        } else if (node.nodeType === Node.ELEMENT_NODE) {
+          const clone = node.cloneNode(false);
+          node.textContent.split(/\s+/).filter(Boolean).forEach((word) => wrapWord(clone, word, delayRef));
+          frag.appendChild(clone);
+          frag.appendChild(document.createTextNode(' '));
+        }
+      });
+      head.textContent = '';
+      head.appendChild(frag);
+      head.classList.add('text-reveal');
+    });
+
+    const tr = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('in-view');
+          tr.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.2 });
+    heads.forEach((h) => tr.observe(h));
+  }
+
+  /* ---------- 7. Card mouse-tracking spotlight ---------- */
   if (!prefersReduced && window.matchMedia('(hover: hover)').matches) {
     $$('.card').forEach((card) => {
       card.addEventListener('mousemove', (e) => {
@@ -114,18 +159,60 @@
     });
   }
 
-  /* ---------- 7. Hero parallax ---------- */
+  /* ---------- 8. Custom cursor glow + hero spotlight (desktop only) ---------- */
+  if (!prefersReduced && window.matchMedia('(hover: hover)').matches) {
+    const cursorGlow = $('#cursorGlow');
+    const heroSpotlight = $('#heroSpotlight');
+    const hero = $('#home');
+    let gx = 0, gy = 0, tx = 0, ty = 0, moved = false;
+
+    if (cursorGlow) {
+      document.addEventListener('mousemove', (e) => {
+        tx = e.clientX; ty = e.clientY;
+        if (!moved) {
+          moved = true;
+          gx = tx; gy = ty;
+          cursorGlow.classList.add('on');
+        }
+      }, { passive: true });
+      document.documentElement.addEventListener('mouseleave', () => cursorGlow.classList.remove('on'));
+
+      (function glowLoop() {
+        gx += (tx - gx) * 0.18;
+        gy += (ty - gy) * 0.18;
+        cursorGlow.style.transform = `translate3d(${gx}px, ${gy}px, 0)`;
+        requestAnimationFrame(glowLoop);
+      })();
+    }
+
+    if (heroSpotlight && hero) {
+      hero.addEventListener('mousemove', (e) => {
+        const r = hero.getBoundingClientRect();
+        hero.style.setProperty('--sx', `${e.clientX - r.left}px`);
+        hero.style.setProperty('--sy', `${e.clientY - r.top}px`);
+        heroSpotlight.classList.add('on');
+      }, { passive: true });
+      hero.addEventListener('mouseleave', () => heroSpotlight.classList.remove('on'));
+    }
+  }
+
+  /* ---------- 9. Hero parallax + scroll progress (rAF-throttled) ---------- */
   const heroContent = $('#heroContent');
+  const progressBar = $('#scrollProgress span');
+  const canParallax = !prefersReduced && !window.matchMedia('(hover: none)').matches;
   let ticking = false;
   function parallax() {
     const y = window.scrollY;
-    if (heroContent && y > 0 && y < window.innerHeight && !prefersReduced) {
+    if (heroContent && canParallax && y > 0 && y < window.innerHeight) {
       heroContent.style.opacity = Math.max(0, 1 - y / (window.innerHeight * 0.55)).toFixed(3);
       heroContent.style.transform = `translateY(${y * 0.18}px) scale(${Math.max(0.95, 1 - y / 8000)})`;
-      heroContent.style.willChange = 'transform, opacity';
     } else if (heroContent) {
       heroContent.style.opacity = '1';
       heroContent.style.transform = 'none';
+    }
+    if (progressBar) {
+      const max = document.documentElement.scrollHeight - window.innerHeight;
+      progressBar.style.transform = `scaleX(${max > 0 ? Math.min(1, y / max) : 0})`;
     }
     ticking = false;
   }
@@ -133,9 +220,18 @@
     if (!ticking) { requestAnimationFrame(parallax); ticking = true; }
   }
   window.addEventListener('scroll', requestParallax, { passive: true });
+  window.addEventListener('resize', requestParallax);
   requestParallax();
 
-  /* ---------- 8. Back to top ---------- */
+  /* ---------- 10. Pause ambient animations when tab hidden ---------- */
+  const bg = document.querySelector('.bg');
+  if (bg) {
+    document.addEventListener('visibilitychange', () => {
+      bg.classList.toggle('paused', document.hidden);
+    });
+  }
+
+  /* ---------- 11. Back to top ---------- */
   const toTop = $('#toTop');
   if (toTop) {
     window.addEventListener('scroll', () => {
@@ -144,11 +240,11 @@
     toTop.addEventListener('click', () => window.scrollTo({ top: 0, behavior: prefersReduced ? 'auto' : 'smooth' }));
   }
 
-  /* ---------- 9. Footer year ---------- */
+  /* ---------- 12. Footer year ---------- */
   const yearEl = $('#year');
   if (yearEl) yearEl.textContent = new Date().getFullYear();
 
-  /* ---------- 10. Contact form (mailto fallback) ---------- */
+  /* ---------- 13. Contact form (mailto fallback) ---------- */
   const form = $('#contactForm');
   const note = $('#formNote');
   if (form) {
@@ -179,6 +275,6 @@
     });
   }
 
-  /* ---------- 11. Scrollspy cleanup ---------- */
+  /* ---------- 14. Scrollspy cleanup ---------- */
   window.addEventListener('scroll', onScrollNav, { passive: true });
 })();
