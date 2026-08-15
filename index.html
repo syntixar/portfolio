@@ -12,6 +12,10 @@
 </head>
 <body>
 
+<!-- ===== Page-level FX layers ===== -->
+<div class="scroll-progress" id="scrollProgress" aria-hidden="true"><span></span></div>
+<div class="cursor-glow" id="cursorGlow" aria-hidden="true"></div>
+
 <!-- ===== Ambient Background (layered lighting) ===== -->
 <div class="bg" aria-hidden="true">
   <div class="bg-base"></div>
@@ -47,6 +51,7 @@
 <main>
 <!-- ===== 1) Hero ===== -->
 <section class="hero" id="home">
+  <div class="hero-spotlight" id="heroSpotlight" aria-hidden="true"></div>
   <div class="container hero-content" id="heroContent">
     <div class="hero-avatar reveal">
       <img src="AdhamKahled.jpg" alt="Adham Khaled" width="800" height="800">
@@ -345,7 +350,6 @@
         <p>"One of the most logical and patient problem solvers I've worked with. He never settles for the first solution."</p>
         <h4>— Teammate, Microsoft Student Club</h4>
       </article>
-    
     </div>
   </div>
 </section>
